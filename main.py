@@ -1,13 +1,43 @@
 from tkinter import *
 from tkinter import ttk
-from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-import matplotlib.animation as animation
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 import time
 import random
-from collections import deque
+from zolix.app.zolix_gateway import ZolixGateway
+from RigolLib import RigolLib
+
+
+def connect_to_Zolix():
+    zolix_gateway = ZolixGateway(
+        "192.168.43.160", 43665
+    )  # configure ip adress and port of the client
+    zolix_gateway.connect_to_server()  # connect to the server
+    zolix_gateway.set_usb_mode(True)  # set the mode of communication in USB mode
+    qte = (
+        zolix_gateway.search_zolix_usb_device()
+    )  # search all zolix connected with the server
+    serial = zolix_gateway.get_zolix_usb_serial(0)
+    zolix_gateway.set_usb_serials(serial)
+
+    zolix_gateway.get_is_open()  # verify if there is an already connected monochromator
+    zolix_gateway.open()  # open the communication with the zolix monochromator and the server
+    zolix_gateway.get_is_open()  # verify that the connection between the server and the monochromator is on
+    return zolix_gateway
+
+def connet_to_Rigol():
+    scope = RigolLib.Scope()
+    scope.auto()
+    scope.run()
+    return scope
+
+
+def change_monochromator_wavelength(zolix_gateway, new_wavelength):
+    zolix_gateway.move_to_wave(new_wavelength)
+    cur_wave = zolix_gateway.get_current_wave()
+    print(cur_wave)
+    return True
 
 
 def validate_wl_input(P):
@@ -16,10 +46,13 @@ def validate_wl_input(P):
     else:
         return False
 
+# it's test method
+# def set_monochromator_wavelength(new_wl):
+#     time.sleep(1)
+#     return True
 
-def set_monochromator_wavelength(new_wl):
-    time.sleep(1)
-    return True
+def get_oscillograpth_date():
+    pass
 
 
 def get_oscillograph_data():
@@ -39,10 +72,10 @@ def plot(initial_wl, final_wl, step):
     ax.set_ylim(0, 10)
 
     # формируем список точек для измерения
-    x_range = np.arange(initial_wl, final_wl, step)
+    x_range = np.arange(initial_wl, final_wl + step, step)
 
-    progressbar =  ttk.Progressbar(orient="horizontal", maximum=len(x_range), length=300)
-    progressbar.grid(row=4,column=0, columnspan=3)
+    progressbar = ttk.Progressbar(orient="horizontal", maximum=len(x_range), length=300)
+    progressbar.grid(row=4, column=0, columnspan=3)
 
     # Первоначальные данные графика
     x_values = []
@@ -59,7 +92,7 @@ def plot(initial_wl, final_wl, step):
 
     # Пробегаемся по точкам измерения и получаем данные с приборов, и обновляем график
     for x in x_range:
-        if set_monochromator_wavelength(x):
+        if change_monochromator_wavelength(zolix_gateway, x):
             progressbar.step(1)
             x_values.append(x)
             y_values.append(get_oscillograph_data())
@@ -71,9 +104,9 @@ def plot(initial_wl, final_wl, step):
             fig.canvas.draw()
             fig.canvas.flush_events()
 
-    toolbar = NavigationToolbar2Tk(canvas, root, pack_toolbar=True)
-    toolbar.update()
-    # toolbar.pack(side=BOTTOM, fill=X)
+    # toolbar = NavigationToolbar2Tk(canvas, root, pack_toolbar=True)
+    # toolbar.update()
+    # # toolbar.pack(side=BOTTOM, fill=X)
 
 
 def start_measurement():
@@ -84,6 +117,8 @@ def start_measurement():
     animationObj = plot(initial_wl, final_wl, step)
 
 
+# zolix_gateway = connect_to_Zolix()
+scope = connet_to_Rigol()
 # Создаем окно
 root = Tk()
 
@@ -98,7 +133,7 @@ root.geometry(f"{w}x{h}")
 # Создание регулярного выражения для валидации ввода
 validate_float_only = (root.register(validate_wl_input), "%P")
 
-opts = { 'padx': 10, 'pady': 10, 'ipadx': 10, 'ipady': 10 , 'sticky': 'nswe' }
+opts = {"padx": 10, "pady": 10, "ipadx": 10, "ipady": 10, "sticky": "nswe"}
 
 # Создание поля ввода
 wavelength_from_label = Label(text="Начальная длина волны")
@@ -110,7 +145,10 @@ wavelength_from_input.grid(row=1, column=0, **opts)
 wavelength_to_label = Label(text="Конечная длина волны")
 wavelength_to_label.grid(row=0, column=1, **opts)
 
-wavelength_to_input = Entry(validate="key", validatecommand=validate_float_only,)
+wavelength_to_input = Entry(
+    validate="key",
+    validatecommand=validate_float_only,
+)
 wavelength_to_input.grid(row=1, column=1, **opts)
 
 wavelength_measurement_step_label = Label(text="Шаг измерения")
