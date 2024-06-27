@@ -20,20 +20,20 @@ class Scope(object):
 
     def __init__(self):
         self._time_scale = None
-        rm = visa.ResourceManager()
-        devices = list(rm.list_resources())
-        scope = None
+        self.rm = visa.ResourceManager()
+        devices = list(self.rm.list_resources())
+        self.scope = None
         for device in devices:
             if VID in device and PID in device:
                 # сохраняем устройство
-                self.scope = rm.open_resource(device)
+                self.scope = self.rm.open_resource(device)
                 # получаем информацию об устройстве
                 self.res = self.scope.query("*IDN?")
                 # включаем автоматическую настройку каналов осциллографа
                 self.scope.write(":AUTO")
                 time.sleep(6)
                 break
-        if scope is None:
+        if self.scope is None:
             raise ValueError("Не удалось найти устройство")
         print("Установлена связь с устройством", self.res)
         # создаем канал 1 и канал 2
@@ -42,6 +42,9 @@ class Scope(object):
 
     def __del__(self):
         self.close()
+
+    def close(self):
+        self.rm.close()
 
     def auto(self):
         """Command the device to automatically select gain and frequency settings."""
