@@ -21,30 +21,48 @@ class Scope(object):
     def __init__(self):
         self._time_scale = None
         self.rm = visa.ResourceManager()
-        devices = list(self.rm.list_resources())
+
+    def auto_connect_device(self):
+        devices = self.get_available_usb_devices()
         self.scope = None
         for device in devices:
-            if VID in device and PID in device:
-                # сохраняем устройство
-                self.scope = self.rm.open_resource(device)
-                # получаем информацию об устройстве
-                self.res = self.scope.query("*IDN?")
-                # включаем автоматическую настройку каналов осциллографа
-                self.scope.write(":AUTO")
-                time.sleep(6)
+            if self.connect_to_the_Rigol(device):
                 break
         if self.scope is None:
             raise ValueError("Не удалось найти устройство")
         print("Установлена связь с устройством", self.res)
+        self.create_channels()
+
+    def manual_connect_device(self, device):
+        if self.connect_to_the_Rigol(device):
+            print("Установлена связь с устройством", self.res)
+            self.create_channels()
+        else:
+            raise ValueError("Не удалось найти устройство")
+
+    def get_available_usb_devices(self):
+        return list(self.rm.list_resources())
+
+    def create_channels(self):
         # создаем канал 1 и канал 2
         self.ch1 = Channel(1, self)
         self.ch2 = Channel(2, self)
 
-    def __del__(self):
-        self.close()
+    def connect_to_the_Rigol(self, device):
+        if VID in device and PID in device:
+            # сохраняем устройство
+            self.scope = self.rm.open_resource(device)
+            # получаем информацию об устройстве
+            self.res = self.scope.query("*IDN?")
+            # включаем автоматическую настройку каналов осциллографа
+            self.scope.write(":AUTO")
+            time.sleep(6)
+            return True
+        else:
+            return False
 
-    def close(self):
-        self.rm.close()
+    def __del__(self):
+        self.close_connection()
 
     def auto(self):
         """Command the device to automatically select gain and frequency settings."""
