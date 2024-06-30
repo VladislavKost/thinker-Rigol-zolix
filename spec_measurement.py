@@ -7,6 +7,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 from zolix.app.zolix_gateway import ZolixGateway
 from RigolLib import RigolLib
+import openpyxl
+from tkinter import filedialog
+from datetime import datetime
 
 
 class SpectralMeasurements:
@@ -14,9 +17,15 @@ class SpectralMeasurements:
 
     def __init__(self):
         self.zolix_gateway = None
+        self.zolix_connected = False
         self.rigol_gateway = RigolLib.Scope()
+        self.rigol_connected = False
         self.zolix_IP_value = "127.0.0.1"
         self.oscilloscope_chanel = "ch1"
+
+        # Первоначальные данные графика
+        self.x_values = []
+        self.y_values = []
 
         self.root = Tk()  # create new tkinter obj
         self._create_interface()
@@ -40,19 +49,35 @@ class SpectralMeasurements:
             # zolix_gateway.open()  # open the communication with the zolix monochromator and the server
             # zolix_gateway.get_is_open()  # verify that the connection between the server and the monochromator is on
             # self.zolix_gateway = zolix_gateway
-            self.zolix_connect_state.config(text="Подключено", foreground="#000000")
+            self.zolix_connected = True
+            self._check_all_equipment_connected()
+            self.zolix_connect_state.config(
+                text="Подключено", foreground="#000000", background="#50FA1C"
+            )
             return True
         else:
             self.zolix_connect_state.config(
-                text="Неверный формат IP адреса.", foreground="#B71C1C"
+                text="Неверный формат IP адреса.",
+                foreground="#B71C1C",
+                background="#F71E1E",
             )
+
+    def _check_all_equipment_connected(self):
+        if self.rigol_connected and self.zolix_connected:
+            self.wavelength_from_input.config(state="normal")
+            self.wavelength_to_input.config(state="normal")
+            self.wavelength_measurement_step_input.config(state="normal")
+            self.start_measurement_button.config(state="normal")
+            self.channels_selection_box.config(state="normal")
 
     def _connect_to_Rigol_oscilloscope(self):
         # self.rigol_gateway.
         # rigol_gateway.auto()
         # rigol_gateway.run()
         # self.rigol_gateway = rigol_gateway
-        self.rigol_connect_state.config(text="Подключено")
+        self.rigol_connected = True
+        self._check_all_equipment_connected()
+        self.rigol_connect_state.config(text="Подключено", background="#50FA1C")
 
     def _change_monochromator_wavelength(self, new_wavelength):
         # if self.zolix_gateway:
@@ -87,7 +112,7 @@ class SpectralMeasurements:
         #         return self.rigol_gateway.ch2.meas_Vmax()
         return 10
 
-    def get_Rigol_oscillograph_min_V(self):
+    def _get_Rigol_oscillograph_min_V(self):
         # if self.rigol_gateway:
         #     if self.oscilloscope_chanel == "ch1":
         #         return self.rigol_gateway.ch1.meas_Vmin()
@@ -116,7 +141,33 @@ class SpectralMeasurements:
         self.initial_wl = float(self.wavelength_from_input.get())
         self.final_wl = float(self.wavelength_to_input.get())
         self.step = float(self.wavelength_measurement_step_input.get())
-        self.animationObj = self.plot()
+        self.animationObj = self._plot()
+
+    def _get_plot_data(self):
+        wb = openpyxl.Workbook()
+        sheet = wb.active
+        sheet.title = "Результаты измерения"
+        sheet.cell(1, 1).value = "Длина волны"
+        sheet.cell(1, 2).value = "Амплитуда"
+
+        # Add data to the first column of the file
+        for row in range(2, len(self.x_values) + 2):
+            sheet.cell(row, 1).value = self.x_values[row - 2]
+
+        # Add data to the first column of the file
+        for row in range(2, len(self.y_values) + 2):
+            sheet.cell(row, 2).value = self.y_values[row - 2]
+
+        # Open a save file dialog
+        file_path = filedialog.asksaveasfilename(
+            title="Выберите путь сохранения файла",
+            initialfile=f"Spectrum_range:{self.initial_wl}-{self.final_wl}_step:{self.step}_{datetime.today().strftime('%d.%m.%Y')}.xlsx",
+            filetypes=[("Файлы Excel", "*.xlsx")],
+            defaultextension=".xlsx",
+        )
+
+        # Сохраняем файл Excel
+        wb.save(file_path)
 
     def _create_interface(self):
         root = self.root
@@ -128,7 +179,7 @@ class SpectralMeasurements:
         opts = self.opts
 
         # IP for Zolix
-        self.zolix_IP = Entry(root)
+        self.zolix_IP = Entry()
         self.zolix_IP.insert(0, self.zolix_IP_value)
         self.zolix_IP.grid(row=0, column=0, **opts)
 
@@ -139,7 +190,7 @@ class SpectralMeasurements:
         self.zolix_connect.grid(row=0, column=1, **opts)
 
         # Zolix connect state
-        self.zolix_connect_state = Label(text="Отключено")
+        self.zolix_connect_state = Label(text="Отключено", background="#F71E1E")
         self.zolix_connect_state.grid(row=0, column=2, **opts)
 
         # Rigol USB Options
@@ -158,17 +209,16 @@ class SpectralMeasurements:
         self.rigol_connect.grid(row=1, column=1, **opts)
 
         # Rigol connect state
-        self.rigol_connect_state = Label(text="Отключено")
+        self.rigol_connect_state = Label(text="Отключено", background="#F71E1E")
         self.rigol_connect_state.grid(row=1, column=2, **opts)
 
         # Oscilloscope channel selection label
-        self.channel_selection_label = Label(
-            text="Канал осциллографа"
-        )
+        self.channel_selection_label = Label(text="Канал осциллографа")
         self.channel_selection_label.grid(row=2, column=0, **opts)
 
         # Oscilloscope channel selection
         self.channels_selection_box = ttk.Combobox(
+            state=DISABLED,
             values=["ch1", "ch2"],
         )
         self.channels_selection_box.current(0)
@@ -183,7 +233,7 @@ class SpectralMeasurements:
 
         # input for initial wavelength
         self.wavelength_from_input = Entry(
-            validate="key", validatecommand=validate_float_only
+            state=DISABLED, validate="key", validatecommand=validate_float_only
         )
         self.wavelength_from_input.grid(row=5, column=0, **opts)
 
@@ -193,6 +243,7 @@ class SpectralMeasurements:
 
         # input for final wavelength
         self.wavelength_to_input = Entry(
+            state=DISABLED,
             validate="key",
             validatecommand=validate_float_only,
         )
@@ -204,17 +255,23 @@ class SpectralMeasurements:
 
         # input for step of wavelengths
         self.wavelength_measurement_step_input = Entry(
-            validate="key", validatecommand=validate_float_only
+            state=DISABLED, validate="key", validatecommand=validate_float_only
         )
         self.wavelength_measurement_step_input.grid(row=5, column=2, **opts)
 
         # start measurement button
         self.start_measurement_button = Button(
-            text="Начать измерение", command=self._start_measurement
+            state=DISABLED,
+            text="Начать измерение",
+            command=self._start_measurement,
         )
         self.start_measurement_button.grid(row=6, column=0, columnspan=3, **opts)
 
-    def plot(self):
+    def _plot(self):
+        # Очищаем прошлые данные
+        self.x_values = []
+        self.y_values = []
+
         # Включаем интерактивный режим
         plt.ion()
 
@@ -225,18 +282,14 @@ class SpectralMeasurements:
         # Устанавливаем границы графика
         ax.set_xlim(self.initial_wl, self.final_wl)
         ax.set_ylim(
-            self.get_Rigol_oscillograph_min_V(), self.get_Rigol_oscillograph_max_V()
+            self._get_Rigol_oscillograph_min_V(), self.get_Rigol_oscillograph_max_V()
         )
 
         # формируем список точек для измерения
         x_range = np.arange(self.initial_wl, self.final_wl + self.step, self.step)
 
-        # Первоначальные данные графика
-        x_values = []
-        y_values = []
-
         # Формируем первичную линию графика
-        (line1,) = ax.plot(x_values, y_values, "b-")
+        (line1,) = ax.plot(self.x_values, self.y_values, "b-")
 
         # Добавляем наш график в окно
         canvas = FigureCanvasTkAgg(fig, master=self.root)
@@ -248,12 +301,23 @@ class SpectralMeasurements:
         for x in x_range:
             # if change_monochromator_wavelength(x):
             if self._change_monochromator_wavelength(x):
-                x_values.append(x)
-                y_values.append(self.get_Rigol_oscillograph_average_V())
+                self.x_values.append(float(x))
+                self.y_values.append(self.get_Rigol_oscillograph_average_V())
 
-                line1.set_xdata(x_values)
-                line1.set_ydata(y_values)
+                line1.set_xdata(self.x_values)
+                line1.set_ydata(self.y_values)
 
                 # Обновляем график
                 fig.canvas.draw()
                 fig.canvas.flush_events()
+
+        # start measurement button
+        self.get_plot_data_button = Button(
+            self.root,
+            text="Сохранить Excel файл с данными",
+            command=self._get_plot_data,
+        )
+        self.get_plot_data_button.grid(row=50, column=0, columnspan=3, **self.opts)
+        # Обновляем график
+        fig.canvas.draw()
+        fig.canvas.flush_events()
