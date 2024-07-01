@@ -256,7 +256,7 @@ class SpectralMeasurements:
         #         return self.rigol_gateway.ch1.meas_Vavg()
         #     elif self.oscilloscope_chanel == "ch2":
         #         return self.rigol_gateway.ch2.meas_Vavg()
-        return random.randint(1, 10)
+        return random.randint(1, 50)
 
     def _get_Rigol_oscillograph_max_V(self):
         # if self.rigol_gateway:
@@ -335,14 +335,14 @@ class SpectralMeasurements:
         # start measurement button
         self.save_plot_excel_button = Button(
             self.root,
-            text="Сохранить Excel файл",
+            text="Сохранить Excel",
             command=self._save_plot_excel,
         )
         self.save_plot_excel_button.grid(row=8, column=0, **self.opts)
 
         self.save_plot_image_button = Button(
             self.root,
-            text="Сохранить изображение",
+            text="Сохранить png",
             command=self._save_plot_image,
         )
         self.save_plot_image_button.grid(row=8, column=1, **self.opts)
