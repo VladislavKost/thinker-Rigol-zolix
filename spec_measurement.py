@@ -187,7 +187,7 @@ class SpectralMeasurements:
         )
         self.start_measurement_button.grid(row=6, column=0, columnspan=3, **opts)
 
-    def _get_plot_data(self):
+    def _save_plot_excel(self):
         wb = Workbook()
         sheet = wb.active
         sheet.title = "Результаты измерения"
@@ -241,6 +241,15 @@ class SpectralMeasurements:
         # Сохраняем файл Excel
         wb.save(file_path)
 
+    def _save_plot_image(self):
+        file_path = filedialog.asksaveasfilename(
+            title="Выберите путь сохранения изображения",
+            initialfile=f"Spectrum_range:{self.initial_wl}-{self.final_wl}_step:{self.step}_{datetime.today().strftime('%d.%m.%Y')}.png",
+            filetypes=[("PNG files", "*.png"), ("all files", "*.*")],
+            defaultextension=".png",
+        )
+        self.fig.savefig(file_path, dpi=1000)
+
     def _get_Rigol_oscillograph_average_V(self):
         # if self.rigol_gateway:
         #     if self.oscilloscope_chanel == "ch1":
@@ -279,9 +288,15 @@ class SpectralMeasurements:
 
         # Устанавливаем границы графика
         ax.set_xlim(self.initial_wl, self.final_wl)
+        max_y_value = self._get_Rigol_oscillograph_max_V()
         ax.set_ylim(
             self._get_Rigol_oscillograph_min_V(), self._get_Rigol_oscillograph_max_V()
         )
+
+        ax.set_xlabel("Длина волны, нм")
+        ax.set_ylabel("Амплитуда, у.е.")
+
+        ax.grid(True)
 
         # формируем список точек для измерения
         x_range = np.arange(self.initial_wl, self.final_wl + self.step, self.step)
@@ -300,7 +315,15 @@ class SpectralMeasurements:
             # if change_monochromator_wavelength(x):
             if self._change_monochromator_wavelength(x):
                 self.x_values.append(float(x))
-                self.y_values.append(self._get_Rigol_oscillograph_average_V())
+                new_y_value = self._get_Rigol_oscillograph_average_V()
+                self.y_values.append(new_y_value)
+
+                if new_y_value > max_y_value:
+                    ax.set_ylim(
+                        self._get_Rigol_oscillograph_min_V(),
+                        new_y_value + new_y_value * 0.1,
+                    )
+                    max_y_value = new_y_value
 
                 line1.set_xdata(self.x_values)
                 line1.set_ydata(self.y_values)
@@ -310,15 +333,24 @@ class SpectralMeasurements:
                 fig.canvas.flush_events()
 
         # start measurement button
-        self.get_plot_data_button = Button(
+        self.save_plot_excel_button = Button(
             self.root,
             text="Сохранить Excel файл",
-            command=self._get_plot_data,
+            command=self._save_plot_excel,
         )
-        self.get_plot_data_button.grid(row=8, column=0, **self.opts)
+        self.save_plot_excel_button.grid(row=8, column=0, **self.opts)
+
+        self.save_plot_image_button = Button(
+            self.root,
+            text="Сохранить изображение",
+            command=self._save_plot_image,
+        )
+        self.save_plot_image_button.grid(row=8, column=1, **self.opts)
+
         # Обновляем график
         fig.canvas.draw()
         fig.canvas.flush_events()
+        self.fig = fig
 
     def _set_device_for_Rigol(self, event):
         val = self.rigol_usb_chosen.get()
