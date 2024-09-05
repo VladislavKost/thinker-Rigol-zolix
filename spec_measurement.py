@@ -49,6 +49,12 @@ class SpectralMeasurements:
             self.start_measurement_button.config(state="normal")
             self.channels_selection_box.config(state="normal")
 
+    def _get_vertical_Rigol_scale(self):
+        if self.oscilloscope_chanel == "ch1":
+            self.vertical_scale = self.rigol_gateway.ch1.get_vertical_scale()
+        elif self.oscilloscope_chanel == "ch2":
+            self.vertical_scale =  self.rigol_gateway.ch2.get_vertical_scale()
+
     def _connect_to_Rigol_oscilloscope(self):
         # self.rigol_gateway.
         # rigol_gateway.auto()
@@ -57,6 +63,20 @@ class SpectralMeasurements:
         self.rigol_connected = True
         self._check_all_equipment_connected()
         self.rigol_connect_state.config(text="Подключено", background="#50FA1C")
+        self._get_vertical_Rigol_scale()
+	
+
+			 
+    def _update_Rigol_vertical_scale(self, new_scale):
+        if self.oscilloscope_chanel == "ch1":
+            self.vertical_scale = self.rigol_gateway.ch1.set_vertical_scale(new_scale)
+        elif self.oscilloscope_chanel == "ch2":
+            self.vertical_scale =  self.rigol_gateway.ch2.set_vertical_scale(new_scale)
+			 
+    def _check_Rigol_vertical_scale(self, value):
+        self._get_vertical_Rigol_scale()
+
+        pass
 
     def _connect_to_Zolix_monochromator(self):
         """Method to connect to the zolix monochromator. Don't forger to connect usb and turn on the zolix server"""
@@ -273,6 +293,8 @@ class SpectralMeasurements:
         #     elif self.oscilloscope_chanel == "ch2":
         #         return self.rigol_gateway.ch2.meas_Vmin()
         return 0
+        
+
 
     def _plot(self):
         # Очищаем прошлые данные
@@ -312,10 +334,10 @@ class SpectralMeasurements:
 
         # Пробегаемся по точкам измерения и получаем данные с приборов, и обновляем график
         for x in x_range:
-            # if change_monochromator_wavelength(x):
             if self._change_monochromator_wavelength(x):
                 self.x_values.append(float(x))
-                new_y_value = self._get_Rigol_oscillograph_average_V()
+                new_y_value = self._get_Rigol_oscillograph_max_V()
+                
                 self.y_values.append(new_y_value)
 
                 if new_y_value > max_y_value:
