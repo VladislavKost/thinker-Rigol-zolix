@@ -100,7 +100,7 @@ class Scope(object):
         Locked is remote operation (indicated on the oscilloscope display by 'Rmt'.
         Unlocked allows control of the oscilloscope by the front panel keys.
         """
-        self._keys_locked = [True if self.ask(":KEY:LOCK?") == "ENAB" else False]
+        self._keys_locked = [True if self.read(":KEY:LOCK?") == "ENAB" else False]
         return self._keys_locked
 
     def get_mem_depth(self):
